@@ -1,62 +1,67 @@
 % H Hunt 2019
 % Called by cutNuc1DData.m
 % Mba=qvars=[beat,M,alpha,c_0,padding_length]
-function [crtpts,mccpos,fstfit,thisPeak]=avCyt_spline(dataStruct,cellit,redoBool)
+function [crtpts,mccpos,fstfit,thisPeak,inits,peakMax,peakMin]=avCyt_spline(dataStruct,cellit,redoBool)
 if redoBool==0 && ~isempty(dataStruct(cellit).crtpts)
     crtpts={dataStruct(cellit).crtpts,dataStruct(cellit).crtptsr};
     fstfit={dataStruct(cellit).fits,dataStruct(cellit).fitsr};
     thisPeak={dataStruct(cellit).thisPeak,dataStruct(cellit).thisPeakr};
     return
 end
-    crtpts=cell(1,2);
-    mccpos=crtpts;
-    fstfit=crtpts;
-    thisPeak=crtpts;
-    timeStep=dataStruct(cellit).timeStep;
-    % Look at cytosol near nucleus
-    cytosol=cell(1,4);
-    % Just outside the nuc l
-    cytosol{1}=dataStruct(cellit).nucleus(1:10)-15;
-    % Just outside the nuc r
-    cytosol{2}=dataStruct(cellit).nucleus((end-10):end)+15;
-    % Look at space where nucleus transient transforms (Is this where NE
-    % actually is?)
-    spaceNuc=dataStruct(cellit).smoothedImg(dataStruct(cellit).xrng(dataStruct(cellit).nucleus),dataStruct(cellit).init+7240);
-    [~,maxl]=max(spaceNuc(1:15));
-    [~,maxr]=max(spaceNuc((end-14):end));
-    % Just inside the nuc l
-    cytosol{3}=dataStruct(cellit).nucleus(maxl);
-    % Just inside the nuc r
-    cytosol{4}=dataStruct(cellit).nucleus(end-13+maxr);
-    % Centre of nucleus
-    cytosol{5}=dataStruct(cellit).nucleus(round(end/2));
-    for lr=1:size(cytosol,2)
+crtpts=cell(1,2);
+mccpos=crtpts;
+fstfit=crtpts;
+thisPeak=crtpts;
+timeStep=dataStruct(cellit).timeStep;
+% Look at cytosol near nucleus
+cytosol=cell(1,4);
+% Just outside the nuc l
+cytosol{1}=dataStruct(cellit).nucleus(1:10)-15;
+% Just outside the nuc r
+cytosol{2}=dataStruct(cellit).nucleus((end-10):end)+15;
+% Look at space where nucleus transient transforms (Is this where NE
+% actually is?)
+spaceNuc=dataStruct(cellit).smoothedImg(dataStruct(cellit).xrng(dataStruct(cellit).nucleus),dataStruct(cellit).init+7240);
+[~,maxl]=max(spaceNuc(1:15));
+[~,maxr]=max(spaceNuc((end-14):end));
+% Just inside the nuc l
+cytosol{3}=dataStruct(cellit).nucleus(maxl);
+% Just inside the nuc r
+cytosol{4}=dataStruct(cellit).nucleus(end-13+maxr);
+% Centre of nucleus
+cytosol{5}=dataStruct(cellit).nucleus(round(end/2));
+cytca=median(dataStruct(cellit).smoothedImg(dataStruct(cellit).xrng(cytosol{1}),(dataStruct(cellit).init+1):end),1);
+try
+    [~,~,~,fprom]=findpeaks(-cytca,'MinPeakDistance',2800);
+catch
+
+    warning('empty cytca')
+end
+[~,promorder]=sort(fprom);
+minProm=fprom(promorder(end-4));
+[~,mccposit]=findpeaks(cytca,'MinPeakDistance',2800,'MinPeakProminence',minProm);
+meanpeakDist=mean(diff(mccposit));
+numPeaks=size(mccposit,2);
+thisPeakit=cell(1,numPeaks);
+crtptsit=zeros(numPeaks,14);
+fstfitit=cell(numPeaks,2);
+inits=zeros(1,numPeaks);
+peakMax=zeros(1,numPeaks);
+peakMin=zeros(1,numPeaks);
+for lr=1:size(cytosol,2)
 %     cytBd=boundary(mod(cytosol,sqSize)+1,ceil(cytosol/sqSize),1);
     % Find peaks
     cytca=median(dataStruct(cellit).smoothedImg(dataStruct(cellit).xrng(cytosol{lr}),(dataStruct(cellit).init+1):end),1);
-    try
-        [~,~,~,fprom]=findpeaks(-cytca,'MinPeakDistance',2800);
-    catch
-        
-        warning('empty cytca')
-    end
-    [~,promorder]=sort(fprom);
-    minProm=fprom(promorder(end-4));
-    [~,mccposit]=findpeaks(cytca,'MinPeakDistance',2800,'MinPeakProminence',minProm);
-    meanpeakDist=mean(diff(mccposit));
 %     % Convert to F/F0?
 
-    numPeaks=size(mccposit,2);
-    thisPeakit=cell(1,numPeaks);
-    crtptsit=zeros(numPeaks,14);
-    fstfitit=cell(numPeaks,2);
     for peakit=1:numPeaks
         thisPeakit{peakit}=median(dataStruct(cellit).smoothedImg(dataStruct(cellit).xrng(cytosol{lr}),...
                 (max(round(mccposit(peakit)-0.1*meanpeakDist)+dataStruct(cellit).init,1):...
             min(round(mccposit(peakit)+0.9*meanpeakDist)+dataStruct(cellit).init,size(dataStruct(cellit).smoothedImg,2)))),1);
-        peakMin=thisPeakit{peakit}(end);
-        peakMax=max(thisPeakit{peakit});
-        thisPeakit{peakit}=(0.9*thisPeakit{peakit}+0.1*peakMax-peakMin)/(peakMax-peakMin);
+        inits(peakit)=max(round(mccposit(peakit)-0.1*meanpeakDist)+dataStruct(cellit).init,1);
+        peakMin(peakit)=thisPeakit{peakit}(end);
+        peakMax(peakit)=max(thisPeakit{peakit});
+        thisPeakit{peakit}=(0.9*thisPeakit{peakit}+0.1*peakMax(peakit)-peakMin(peakit))/(peakMax(peakit)-peakMin(peakit));
         % Find critical points/breaks for spline fits
         if max(diff(thisPeakit{peakit}))>1e-3
             % Approx. start of rise
@@ -69,7 +74,7 @@ end
             [~,cpts(4)]=min(diff(thisPeakit{peakit}));
             % end
             cpts(5)=size(thisPeakit{peakit},2);
-            
+
             try
                 % Right before rise
                 crtptsit(peakit,1)=find(diff(thisPeakit{peakit}(1:cpts(2)))<median(abs(diff(thisPeakit{peakit}))),1,'last')-15;
@@ -95,7 +100,7 @@ end
                 fstfitit(end,:)=[];
                 numPeaks=numPeaks-1;
             else
-                
+
             try 
                 expfit=fit(f1',f2','exp2');
             catch
@@ -114,9 +119,9 @@ end
                 warning(strcat('thisPeak:',num2str(size(thisPeak{peakit}))))
             end
             fstfitit{peakit,1}=coeffvalues(f);
-            
-            
-            
+
+
+
             if 0
                 cy = [240,228,66]/255;
                 cb = [0 114 178]/255;
@@ -136,19 +141,19 @@ end
             end
         end
     end
-for peakit=1:numPeaks
-if crtptsit(peakit,1)==0
-crtptsit(peakit,:)=[];
-fstfitit(peakit,:)=[];
-thisPeakit(peakit)=[];
-end
-end
-crtptsit=crtptsit*timeStep;
-crtpts{lr}=crtptsit;
-mccpos{lr}=mccposit;
-fstfit{lr}=fstfitit;
-thisPeak{lr}=thisPeakit;
+    for peakit=1:numPeaks
+    if crtptsit(peakit,1)==0
+    crtptsit(peakit,:)=[];
+    fstfitit(peakit,:)=[];
+    thisPeakit(peakit)=[];
     end
+    end
+    crtptsit=crtptsit*timeStep;
+    crtpts{lr}=crtptsit;
+    mccpos{lr}=mccposit;
+    fstfit{lr}=fstfitit;
+    thisPeak{lr}=thisPeakit;
+end
 end
 
 function [sol,plusff]=FF0touM(img,cyt,plusff)

@@ -1,5 +1,5 @@
 %% Figures for thesis chapter on analytical solution
-if 0
+if 1
     baseSize=24;
     load('/Users/hhunt1/Documents/Nucleus/CutNuc1DData/cell7-1.mat')
     cellit=1;

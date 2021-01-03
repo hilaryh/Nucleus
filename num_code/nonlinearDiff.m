@@ -3,11 +3,14 @@
 % Units used are ms, uM, um
 % To do - check convergence with q_spline.
 %           double check bd
-function [sol,r,t]=nonlinearDiff(D_uin,params_in,data_fits,data_crtpts,tint,tmax)
+function [sol,r,t]=nonlinearDiff(D_uin,params_in,data_fits,data_crtpts,tint,tmax,xlen)
 if exist('/Users/hhunt1/Documents/Nucleus/cutNuc1DData/ana_code','dir')
 addpath('/Users/hhunt1/Documents/Nucleus/cutNuc1DData/ana_code')
 end
 global fits; global crtpts;global params; global D_u
+if ~exist('xlen')
+    xlen=50;
+end
 fits=data_fits;
 crtpts=data_crtpts;
 % params = [D_u,b_t,K,NPC,a];
@@ -20,7 +23,7 @@ m=1;
 % a=4.7; % Av nucleus diameter measured by G Bass
 % tmax=800;
 % tsteps=201;%tmax/1+1;
-r=linspace(0,params(5),2e2+1);
+r=linspace(0,params(5),xlen);
 t=linspace(0,tmax,round(tmax/tint)+1);
 sol=pdepe(m,@bufferDiff,@diffIC,@diffBC,r,t);
 % sol = pdepe(m,@heatcyl,@heatic,@heatbc,x,t);

@@ -5,13 +5,13 @@ function data = processImg(data,graphBool,redoBool)
     
     % Using automatically generated denoising functions 
     % from the SWT Denoising 1D toolbox
-    
+	maxTime=15000
     img = data.imgO;
     place = 200*size(img,1)/512;
 %     minProm = 0.3*(max(max(img))-min(min(img)));
-    [~, ~,~,proms] = findpeaks(mean(img(:,1:15000)));
+    [~, ~,~,proms] = findpeaks(mean(img(:,1:maxTime)));
     minProm=max(proms)/2;
-    [~, plocs] = findpeaks(mean(img(:,1:15000)),'MinPeakProminence',minProm);
+    [~, plocs] = findpeaks(mean(img(:,1:maxTime)),'MinPeakProminence',minProm);
 %     figure
 %     plot(img(place,1:3500))
 %     hold on 
